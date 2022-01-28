@@ -27,10 +27,28 @@ contract Registrar {
         admin = msg.sender;
     }
 
-    /**
-        This is a pre-commitment scheme to avoid front-running as recommended here -> 
-        https://s3.amazonaws.com/ieeecs.cdn.csdl.content/trans/ts/5555/01/09555611.pdf?AWSAccessKeyId=ASIA2Z6GPE73JPHMV3MX&Expires=1643384177&Signature=FMIcwPXV2LdvY49nN4TvK41L7E4%3D&x-amz-security-token=IQoJb3JpZ2luX2VjEK7%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLWVhc3QtMSJGMEQCICnlKTf%2BUi8sqxrt9XhQwCn0x8v5O1efI%2BHnreumMUt2AiAGGw7GzNcHangqiuK4%2Bz3tO57MPpfF43gJRXYfodQYJyqmAgjX%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDc0MjkwODcwMDY2MiIMV1ZLxdoDHUPNtD%2BTKvoB59IWUNPH753cyxFcEM6GMGmdF2fnPduk8IRKQsicpS3FdEHYMNjRjkzWzs9XK8D9gOUXXmiSeeraY7b3EJR4l5Smk%2BCToARTY2asaMRfR%2BCGXkx5VI3lxYr76EMFgrw%2BxBFQJbBodbHp1iYYbmp9A%2Fr8ec1RQVbmbY5XuWDetf4T72ZTFDZ6IP0HmKs4lSlTIn%2FWWGqWie2qGL%2B%2FTzzHu%2F5PvbAcetSQnlH0fVlWQC6fOHg4M%2Fm4IbOmgOvPnDSjV6zGp8Qj39wTpiQ2BxNvKxmjNecrgQWleYo98cuJkzCG8pZjjZ3YRBY9PFe4KPs24XCufwt37FQquTC37c%2BPBjqbAZx7OVwaNw7dsgqOWRERLch3YlvPEie2mT%2FbbP605tGxHRQ9g5Mqf%2F9Yz197trYN6ZFSC32Y7DBbSLTGbTd9%2Fj7ijm5nceTL0acolpNhV9EghkizcqJU8pnTjIhJLHPHaBn2aySh8z5Gi7h%2FGtGsLFoo%2FbRsQIT4hVKDFUc9fEYrnm73auM9YmMw7IIXJNZL06M2FOtzV%2BTmh9U8
+    modifier onlyAdmin(address sender) {
+        require(msg.sender == admin, 'Only Admin');
+        _;
+    }
 
+    modifier checkLock(string memory name, address sender) {
+        require(
+            lockExpiryMapping[name][sender] > 0,
+            "No lock found for name/sender pair"
+        );
+
+        require(
+            lockExpiryMapping[name][sender] > block.timestamp,
+            "Lock expired"
+        );
+
+        require(lockMapping[name] == sender, "Name locked by another user");
+
+        _;
+    }
+
+    /**
         Basically, a user first announces they want to register a name and this annoucement is locked in before the actual
         call to registration. A Malicious node can see the announcement and make it before the user,
         We can then employ another method to prevent front-running. 
@@ -83,25 +101,13 @@ contract Registrar {
         emit Locked(name, sender, lockExpiryMapping[name][sender]);
     }
 
+    function updateGasRequiredForLock(uint256 _grfl) public onlyAdmin(msg.sender) {                
+        gasRequiredForLock = _grfl;
+    }
+
     // gets the price of registring a name
     function calculatePrice(string memory name) public pure returns (uint256) {
         return bytes(name).length; // in wei
-    }
-
-    modifier checkLock(string memory name, address sender) {
-        require(
-            lockExpiryMapping[name][sender] > 0,
-            "No lock found for name/sender pair"
-        );
-
-        require(
-            lockExpiryMapping[name][sender] > block.timestamp,
-            "Lock expired"
-        );
-
-        require(lockMapping[name] == sender, "Name locked by another user");
-
-        _;
     }
 
     function registerName(string memory name)
@@ -161,13 +167,11 @@ contract Registrar {
         these methods exists only for testing purposes. 
         although in the real world, an admin may want to force an expire 
      */
-    function forceExpireLock(string memory name, address user) public {
-        require(msg.sender == admin, 'Only Admin');
+    function forceExpireLock(string memory name, address user) public onlyAdmin(msg.sender) {        
         lockExpiryMapping[name][user] = block.timestamp;
     }
 
-    function forceExpireRegistration(string memory name, address user) public {
-        require(msg.sender == admin, 'Only Admin');
+    function forceExpireRegistration(string memory name, address user) public onlyAdmin(msg.sender) {        
         registeredExpiryMapping[name][user] = block.timestamp;
     }    
 
