@@ -97,7 +97,7 @@ describe("Registar", () => {
       await registrar.forceExpireRegistration("Hello Name", accounts[2].address);
       const reg2 = await registrar.connect(accounts[2]);
       const price = await registrar.calculatePrice("Hello Name");
-      expect(await reg2.registerName("Hello Name", { value: price })).to.emit(reg2, "Registered");
+      expect(await reg2.registerName("Hello Name", { value: price })).to.emit(reg2, "Renew");
     });
 
     it("Should renew an expired name by same user", async () => {
