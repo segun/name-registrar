@@ -11,6 +11,12 @@ contract Registrar {
         uint256 expiry
     );
 
+    event Renew(
+        string indexed name,
+        address indexed sender,
+        uint256 expiry
+    );    
+
     uint256 gasRequiredForLock = 28000000;
     uint256 expiryMinutes = 300; // 5 minutes
     uint256 registeredExpiryMinutes = 3.156e7; // 1 year
@@ -50,7 +56,7 @@ contract Registrar {
 
     /**
         // https://forum.openzeppelin.com/t/protecting-against-front-running-and-transaction-reordering/1314
-        
+
         Basically, a user first announces they want to register a name and this annoucement is locked in before the actual
         call to registration. A Malicious node can see the announcement and make it before the user,
         We can then employ another method to prevent front-running. 
@@ -58,7 +64,7 @@ contract Registrar {
         We can safely calculate the gas required before hand, we can check that the gas fees
         sent is not higher than X, where X is what is required to send the transaction successfully.
 
-        Announcements will expire after Y minutes
+        Lock will expire after Y minutes
      */
     function lock(string memory name) public {
         require(
@@ -123,14 +129,37 @@ contract Registrar {
         require(msg.value >= registrationCost, "Price too low.");
         
         if (registeredExpiryMapping[name][sender] < block.timestamp) {
+            // refund any previous locked amount
+            uint256 previousLockAmount = registeredLockAmountMapping[name][sender];
             // register new name
             registeredMapping[name] = sender;
             registeredLockAmountMapping[name][sender] = msg.value;
             registeredExpiryMapping[name][sender] = block.timestamp + registeredExpiryMinutes;
+
+            if(previousLockAmount > 0) {
+                (bool success, ) = payable(sender).call{value: previousLockAmount}("");
+                require(
+                    success,
+                    "Registeration failed: Can not transfer locked amount"
+                );                
+            }
+            
             emit Registered(name, sender, registeredExpiryMapping[name][sender]);                    
         } else if (registeredExpiryMapping[name][sender] >= block.timestamp) {
             // name has not expired. do nothing.
             revert("Your registration is still active");
+        }
+    }
+
+    function renewRegistration(string memory name) public {        
+        address sender = msg.sender;
+
+        require(registeredMapping[name] == sender, 'Name is not registered to you');
+        if (registeredExpiryMapping[name][sender] < block.timestamp) {
+            registeredExpiryMapping[name][sender] = block.timestamp + registeredExpiryMinutes;
+            emit Renew(name, sender, registeredExpiryMapping[name][sender]);                    
+        } else {
+            revert("Name registration has not expired");
         }
     }
 
