@@ -49,6 +49,8 @@ contract Registrar {
     }
 
     /**
+        // https://forum.openzeppelin.com/t/protecting-against-front-running-and-transaction-reordering/1314
+        
         Basically, a user first announces they want to register a name and this annoucement is locked in before the actual
         call to registration. A Malicious node can see the announcement and make it before the user,
         We can then employ another method to prevent front-running. 
