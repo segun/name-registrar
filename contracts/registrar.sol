@@ -141,10 +141,11 @@ contract Registrar {
                 require(
                     success,
                     "Registeration failed: Can not transfer locked amount"
-                );                
-            }
-            
-            emit Registered(name, sender, registeredExpiryMapping[name][sender]);                    
+                ); 
+                emit Renew(name, sender, registeredExpiryMapping[name][sender]);                                   
+            } else {
+                emit Registered(name, sender, registeredExpiryMapping[name][sender]);                    
+            }            
         } else if (registeredExpiryMapping[name][sender] >= block.timestamp) {
             // name has not expired. do nothing.
             revert("Your registration is still active");
